@@ -1,0 +1,27 @@
+<html>
+    <head>
+        <title>DocBuilder Test</title>
+        <script type="text/javascript">
+            var NUM_IFRAMES = 300;
+
+            function createTestIFrames() {
+                for (var i = 0; i < NUM_IFRAMES; i++) {
+                    createIFrame();
+                }
+            }
+
+            function createIFrame() {
+                var div = document.createElement("div");
+                var iFrame = document.createElement("iframe");
+                document.body.appendChild(div);
+                div.appendChild(iFrame);
+                iFrame.src = "topic.xml";
+
+                return iFrame;
+            }
+        </script>
+    </head>
+    <body onload="createTestIFrames()">
+        <h1>DocBuilder IFrame Test</h1>
+    </body>
+</html>
