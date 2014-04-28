@@ -176,6 +176,7 @@ public class PerformanceTests {
 
         final String conditions = "test";
         final Integer format = CommonConstants.DOCBOOK_50;
+        final DocBookVersion version = DocBookVersion.DOCBOOK_50;
         final Boolean includeTitle = false;
         final String entities = null;
 
@@ -183,11 +184,16 @@ public class PerformanceTests {
             try {
                 final Document doc = XMLUtilities.convertStringToDocument(TOPIC);
 
+                // Make sure all the required entities are in place
+                if (!DocBookUtilities.allEntitiesAccountedFor(doc, version, entities)) {
+                    continue;
+                }
+
                 // Wrap this topic up for rendering if needed
                 DocBookUtilities.wrapForRendering(doc);
 
                 // Some xml formats need namespace info added to the document element
-                DocBookUtilities.addNamespaceToDocElement(DocBookVersion.getVersionFromId(format), doc);
+                DocBookUtilities.addNamespaceToDocElement(version, doc);
 
                 // Remove the title if requested
                 if (includeTitle != null && !includeTitle.booleanValue()) {
@@ -204,12 +210,8 @@ public class PerformanceTests {
                 // convert back to a string for final processing
                 final String processedXml = XMLUtilities.convertDocumentToString(doc);
 
-                if (!XMLUtilities.allEntitiesAccountedFor(processedXml, format, entities)) {
-                    continue;
-                }
-
                 // convert the xml back to a string, remove the preamble, and replace any standard entities
-                final String fixedXML = XMLUtilities.replaceStandardEntities(format, XMLUtilities.removePreamble(processedXml));
+                final String fixedXML = XMLUtilities.removePreamble(processedXml);
             } catch (Exception e) {
 
             }
@@ -248,7 +250,8 @@ public class PerformanceTests {
             // range
             if (topic != null && csNode != null) {
                 final String eTagValue = topicId + ":" +
-                        (revision != null ? revision.toString() : EnversUtilities.getLatestRevision(entityManager, topic).toString()) + ":" +
+                        (revision != null ? revision.toString() : EnversUtilities.getLatestRevision(entityManager,
+                                topic).toString()) + ":" +
                         (includeTitle == null ? true : false) + ":" +
                         (condition == null ? "".hashCode() : condition.hashCode()) + ":" +
                         csNode.getEntityId() + ":" +
@@ -290,7 +293,8 @@ public class PerformanceTests {
             // range
             if (topic != null && csNode != null) {
                 final String eTagValue = topicId + ":" +
-                        (revision != null ? revision.toString() : EnversUtilities.getLatestRevision(entityManager, topic).toString()) + ":" +
+                        (revision != null ? revision.toString() : EnversUtilities.getLatestRevision(entityManager,
+                                topic).toString()) + ":" +
                         (includeTitle == null ? true : false) + ":" +
                         (condition == null ? "".hashCode() : condition.hashCode()) + ":" +
                         csNode.getEntityId() + ":" +
@@ -342,6 +346,7 @@ public class PerformanceTests {
         final String XSL_STYLESHEET = "<?xml-stylesheet type='text/xsl' href='/pressgang-ccms-static/publican-docbook/html-single-diff" +
                 ".xsl'?>";
         final String fixedTitle = includeTitle == null || includeTitle ? title : "";
+        final DocBookVersion version = DocBookVersion.getVersionFromId(format);
 
         // Check the XML is not empty
         if (xml == null || xml.trim().length() == 0) {
@@ -389,6 +394,14 @@ public class PerformanceTests {
         // Attempt to convert the XML, and throw an exception if there is an issue
         try {
             final Document xmlDoc = XMLUtilities.convertStringToDocument(xml, true);
+
+            /*
+                Make sure all the required entities are in place
+             */
+            if (!DocBookUtilities.allEntitiesAccountedFor(xmlDoc, version, entities)) {
+                return invalidXMLPlaceholder;
+            }
+
             // Wrap this topic up for rendering if needed
             DocBookUtilities.wrapForRendering(xmlDoc);
 
@@ -411,19 +424,27 @@ public class PerformanceTests {
             // convert back to a string for final processing
             final String processedXml = XMLUtilities.convertDocumentToString(xmlDoc);
 
-            if (!XMLUtilities.allEntitiesAccountedFor(processedXml, format, entities)) {
-                return invalidXMLPlaceholder;
-            }
-
-            // convert the xml back to a string, remove the preamble, and replace any standard entities
-            final String fixedXML = XMLUtilities.replaceStandardEntities(format, XMLUtilities.removePreamble(processedXml));
+            // convert the xml back to a string and remove the preamble
+            final String fixedXML = XMLUtilities.removePreamble(processedXml);
 
             // Add the stylesheet info
             final StringBuilder retValue = new StringBuilder(XSL_STYLESHEET + "\n");
+
+            final StringBuilder entitiesCombined = new StringBuilder();
+            if (version == DocBookVersion.DOCBOOK_45 || version == DocBookVersion.DOCBOOK_50) {
+                entitiesCombined.append(DocBookUtilities.DOCBOOK_ENTITIES_STRING);
+            }
+            if (entities != null) {
+                if (!entities.isEmpty()) {
+                    entitiesCombined.append("\n");
+                }
+                entitiesCombined.append(entities);
+            }
+
             // Build the doctype declaration
             retValue.append(
-                    DocBookUtilities.buildDocBookDoctype(DocBookVersion.getVersionFromId(format), xmlDoc.getDocumentElement().getNodeName(),
-                            entities, false) + "\n");
+                    DocBookUtilities.buildDocBookDoctype(version, xmlDoc.getDocumentElement().getNodeName(), entitiesCombined.toString(),
+                            false) + "\n");
             retValue.append(fixedXML);
 
             return retValue.toString();
